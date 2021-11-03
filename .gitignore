@@ -1,0 +1,4 @@
+*.mp4
+
+# PyCharm Specific Stuff
+.idea
