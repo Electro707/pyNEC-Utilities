@@ -2,3 +2,4 @@
 
 # PyCharm Specific Stuff
 .idea
+__pycache__

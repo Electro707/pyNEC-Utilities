@@ -26,8 +26,41 @@ from mpl_toolkits.mplot3d import art3d
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 import matplotlib.animation as animation
+from scipy.linalg import norm
 # import mayavi.mlab as mlab
 import typing
+
+
+def set_axes_equal(ax):
+    '''
+    From https://stackoverflow.com/questions/13685386/matplotlib-equal-unit-length-with-equal-aspect-ratio-z-axis-is-not-equal-to
+
+    Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc..  This is one possible solution to Matplotlib's
+    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
+
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    '''
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
 @dataclass
@@ -144,6 +177,7 @@ class GraphAntennaDesign:
         """
             Show the plot
         """
+        set_axes_equal(self.ax)
         plt.show()
 
 
@@ -151,7 +185,6 @@ class PyNECWrapper:
     def __init__(self):
         self.nec = PyNEC.nec_context()
         self.geo = self.nec.get_geometry()
-        # self.nec.set_extended_thin_wire_kernel(False)
 
         self._last_tag_id = 0
         self._all_wires = {}
@@ -174,17 +207,28 @@ class PyNECWrapper:
                 The internal WireID of the wire
         """
         self._last_tag_id += 1
-        self._all_wires[self._last_tag_id] = np.array([coords_1, coords_2])
+        self._all_wires[self._last_tag_id] = {
+            'coords': np.array([coords_1, coords_2]),
+            'id': self._last_tag_id,
+            'width': wire_rad,
+            'numb_seg': numb_segments,
+        }
         self.geo.wire(self._last_tag_id, numb_segments, *coords_1, *coords_2, wire_rad, 1.0, 1.0)
         return self._last_tag_id
 
-    def geometry_complete(self):
+    def geometry_complete(self, is_gound_plane: bool = False, current_expansion: bool = True):
         """
             Call this function when done with making the geometry
         """
-        self.nec.geometry_complete(0)
+        if not is_gound_plane:
+            self.nec.geometry_complete(0)
+        else:
+            if current_expansion:
+                self.nec.geometry_complete(1)
+            else:
+                self.nec.geometry_complete(-1)
 
-    def add_exitation(self, wire_id: int, place_seg: int, numb_segments: int):
+    def add_exitation(self, wire_id: int, place_seg: int):
         """
             Adds an exitation source
 
@@ -192,7 +236,7 @@ class PyNECWrapper:
                 wire_id (int): The WireID of the wire to apply the exitation on
                 place_seg: The segment of the wire to place the exitation on
         """
-        self._ex_wire = {'wire_id': wire_id, 'where_seg': int(place_seg), 'numb_seg': numb_segments}
+        self._ex_wire = {'wire_id': wire_id, 'where_seg': int(place_seg)}
         self.nec.ex_card(0, wire_id, int(place_seg), 0, 1.0, 0, 0, 0, 0, 0)
 
     def calculate(self, n: float):
@@ -259,20 +303,95 @@ class PyNECWrapper:
         return [self.get_3d_radiation_pattern(i) for i in range(self.numb_freq_index)]
 
     def plot_3d_radiation_pattern(self, in_data: RadiationPatternData = None, freq_index: int = 0):
+        """
+            Function to plot the 3D radiation pattern of the antenna
+        """
         if in_data is None:
             in_data = self.get_3d_radiation_pattern(freq_index)
 
-        plot = AnimateRadiationPattern(in_data)
+        plot = GraphRadiationPattern(in_data)
         plot.show()
 
+    # Partially copied from https://github.com/tmolteno/python-necpp/blob/master/PyNEC/example/antenna_util.py
+    @staticmethod
+    def get_reflection_coefficient(z, z0):
+        return np.abs((z - z0)/(z + z0))
+
+    def calculate_vswr(self, z, z0):
+        gamma = self.get_reflection_coefficient(z, z0)
+        return float((1+gamma) / (1-gamma))
+
+    def get_vswr(self, z0: float = 50.0):
+        """
+            Gets the VSWR for the given calculation frequency or frequencies.
+
+            Args:
+                z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
+
+            Returns:
+                A tuple 2 lists, one for frequencies and the other for the VSWR
+        """
+        freqs, vswrs = [], []
+        for i in range(self.numb_freq_index):
+            ipt = self.nec.get_input_parameters(i)
+            impedance = ipt.get_impedance()
+            freqs.append(ipt.get_frequency())
+            vswrs.append(self.calculate_vswr(impedance, z0))
+        return freqs, vswrs
+
+    def plot_swr(self, z0: float = 50.0):
+        """
+            Plots the VSWR of the antenna
+
+            Args:
+                z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
+        """
+        if self.numb_freq_index == 1:
+            raise UserWarning("Must have more than 1 frequency point in order to create a SWR plot")
+        freqs, vswrs = self.get_vswr(z0)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(freqs, vswrs)
+        ax.grid(True)
+        ax.set_title("VSWR for %.2fMhz-%.2fMhz" % (freqs[0]/1e6, freqs[len(freqs)-1]/1e6))
+        plt.show()
+
     def add_antenna_to_axis(self, ax: plt.Axes):
+        """
+            WORK-In-Progress Function
+            Adds surface plots for the antenna wires and elements to a MatPlotLib axis
+        """
+        def create_cyclinder(wire_coords: list, thickness: float):
+            # https://stackoverflow.com/questions/32317247/how-to-draw-a-cylinder-using-matplotlib-along-length-of-point-x1-y1-and-x2-y2
+            R = thickness / 2
+            v = wire_coords[1] - wire_coords[0]   # vector in direction of axis
+            mag = norm(v)                         # find magnitude of vector
+            v /= mag                           # unit vector in direction of axis
+            # make some vector not in the same direction as v
+            not_v = np.array([1, 0, 0])
+            if (v == not_v).all():
+                not_v = np.array([0, 1, 0])
+            n1 = np.cross(v, not_v)     # make vector perpendicular to v
+            n1 /= norm(n1)        # normalize n1
+            n2 = np.cross(v, n1)    # make unit vector perpendicular to v and n1
+            t = np.linspace(0, mag, 10)    # surface ranges over t from 0 to length of axis and 0 to 2*pi
+            theta = np.linspace(0, 2 * np.pi, 10)
+            t, theta = np.meshgrid(t, theta)        # use meshgrid to make 2d arrays
+            # generate coordinates for surface
+            X, Y, Z = [wire_coords[0][i] + v[i] * t + R * np.sin(theta) * n1[i] + R * np.cos(theta) * n2[i] for i in [0, 1, 2]]
+            return X, Y, Z
+
         for wire in self._all_wires.values():
-            ax.plot3D(wire[:, 0], wire[:, 1], wire[:, 2], color='black', linewidth=2)
+            ax.plot_surface(*create_cyclinder(wire['coords'], wire['width']), color='black')
         # Calculate the exitation location
         ex_seg = self._all_wires[self._ex_wire['wire_id']]
-        ex_seg = np.array(list(zip((((ex_seg[1, :] - ex_seg[0, :]) / self._ex_wire['numb_seg']) * (self._ex_wire['where_seg']-1)) + ex_seg[0, :],
-                          (((ex_seg[1, :] - ex_seg[0, :]) / self._ex_wire['numb_seg']) * (self._ex_wire['where_seg'])) + ex_seg[0, :])))
-        ax.plot3D(ex_seg[0], ex_seg[1], ex_seg[2], linewidth=5, color='red')
+        ex_seg_coords = ex_seg['coords']
+        ex_seg_coords = np.array(list((
+            (((ex_seg_coords[1, :] - ex_seg_coords[0, :]) / ex_seg['numb_seg']) * (self._ex_wire['where_seg']-1)) + ex_seg_coords[0, :],
+            (((ex_seg_coords[1, :] - ex_seg_coords[0, :]) / ex_seg['numb_seg']) * (self._ex_wire['where_seg'])) + ex_seg_coords[0, :]
+        )))
+        ax.plot_surface(*create_cyclinder(ex_seg_coords, ex_seg['width']*1.5), color='red')
 
 
 if __name__ == '__main__':
@@ -280,8 +399,8 @@ if __name__ == '__main__':
     dipole_sim = PyNECWrapper()
     w_id = dipole_sim.add_wire([0, 0, -1], [0, 0, 1], 0.03, 36)
     dipole_sim.geometry_complete()
-    dipole_sim.add_exitation(w_id, 18, 36)
+    dipole_sim.add_exitation(w_id, 18)
     dipole_sim.set_single_f(144)
     dipole_sim.calculate(36)
-    anim_r = GraphRadiationPattern(dipole_sim.get_3d_radiation_pattern(), rotate=False, elevation=20)
+    anim_r = GraphRadiationPattern(dipole_sim.get_3d_radiation_pattern())
     anim_r.show()

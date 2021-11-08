@@ -5,3 +5,8 @@ These utilities includes a class for modelling and simulating the antenna, a cla
 
 # Docs
 Coming Soon:tm:, probably after I finish cleaning up the API
+
+# TODO:
+- Add axis label for graphs
+- Add elevation and azimuth plotting function
+- Add more docs
