@@ -155,6 +155,9 @@ class Graph3DRadiationPattern:
     def export_to_gif(self, file_name):
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
+    def export_to_svg(self, file_name):
+        plt.savefig(file_name+'.svg')
+
     def export_to_mp4(self, file_name):
         writermp4 = animation.FFMpegWriter(fps=60)
         self.ani.save(file_name+'.mp4', writer=writermp4, dpi=300)
@@ -188,15 +191,14 @@ class Graph2DRadiationPattern:
         i, i2 = np.unravel_index(np.argmax(g_l), np.shape(g_l))
         max_g = self.data[i].plot_radius[i2]
 
-        print(max_g)
-
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, polar=True)
         self.plot1 = self.ax.plot(self.data[0].plot_theta, self.data[0].plot_radius)[0]
         self.ax.grid(True)
         self.ax.set_ylim(0, max_g)
         self.ax.yaxis.set_major_formatter(self._decibel_formatter)
-        self.ax.set_title("2D Radiation Plot for %.3f Mhz" % (self.data[0].freq/1e6))
+
+        self.set_plot_title(self.data[0])
 
         if isinstance(in_data, list):
             self.ani = animation.FuncAnimation(self.fig, self._update, self.numb_frames)
@@ -211,15 +213,38 @@ class Graph2DRadiationPattern:
     def export_to_gif(self, file_name):
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
+    def export_to_svg(self, file_name):
+        plt.savefig(file_name+'.svg')
+
     def export_to_mp4(self, file_name):
         writermp4 = animation.FFMpegWriter(fps=60)
         self.ani.save(file_name+'.mp4', writer=writermp4, dpi=300)
 
+    def export_to_latex(self, file_name):
+        old_backend = matplotlib.get_backend()
+        matplotlib.use("pgf")
+        matplotlib.rcParams.update({
+            "pgf.texsystem": "pdflatex",
+            'font.family': 'serif',
+            'text.usetex': True,
+            'pgf.rcfonts': False,
+        })
+        plt.savefig(file_name+'.pgf')
+        matplotlib.use(old_backend)
+
     def _update(self, frame_numb):
         if self.multiple_data:
-            i = int((frame_numb / (self.numb_frames/2)) * len(self.data)) % len(self.data)
+            i = int((frame_numb / self.numb_frames) * len(self.data)) % len(self.data)
             self.plot1.set_data(self.data[i].plot_theta, self.data[i].plot_radius)
-            self.ax.set_title("2D Radiation Plot for %.3f Mhz at %.1f degrees" % (self.data[i].freq/1e6, self.data[i].constant_elevation))
+            self.set_plot_title(self.data[i])
+
+    def set_plot_title(self, data: Radiation2DPatternData):
+        title = "2D Radiation Plot for %.3f Mhz" % (data.freq/1e6)
+        if data.constant_elevation is not None:
+            title += " at %.1f degrees elevation" % data.constant_elevation
+        elif data.constant_azimuth is not None:
+            title += " at %.1f degrees azimuth" % data.constant_azimuth
+        self.ax.set_title(title)
 
 
 class GraphAntennaDesign:
@@ -299,6 +324,8 @@ class PyNECWrapper:
                 continue
             elif line[0] == 'GW':
                 self.add_wire([float(x) for x in line[3:6]], [float(x) for x in line[6:9]], float(line[9]), int(line[2]), manual_wire_id=int(line[1]))
+            elif line[0] == 'GA':
+                self.add_arc(float(line[3]), float(line[4]), float(line[5]), float(line[6]), int(line[2]), manual_arc_id=int(line[1]))
             elif line[0] == 'GE':
                 self.nec.geometry_complete(int(line[1]))     # Call the nec class's geometry_complete directly
             elif line[0] == 'EX':
@@ -317,6 +344,9 @@ class PyNECWrapper:
                 for index, i in enumerate("{:04d}".format(tmp)):
                     arg.insert(3+index, int(i))
                 rp_card_args = arg.copy()
+            elif line[0] == 'GM':
+                # TODO: Move this to main calling function
+                self.geo.move(*[float(x) for x in line[3:9]], int(float(line[9])), int(line[2]), int(line[1]))
             elif line[0] == 'LD':
                 arg = [float(x) for x in line[1:8]]
                 for i in [0, 1, 2, 3]:
@@ -358,6 +388,15 @@ class PyNECWrapper:
         self.geo.wire(self._last_tag_id, numb_segments, *coords_1, *coords_2, wire_rad, 1.0, 1.0)
         return self._last_tag_id
 
+    def add_arc(self, radius: float, start_angle: float, end_angle: float, wire_radius: float, numb_segments: int, manual_arc_id: int = None):
+        if manual_arc_id is None:
+            # TODO: This may not be the best way to handle adding a manual ID wire, fix this later
+            self._last_tag_id += 1
+        else:
+            self._last_tag_id = manual_arc_id
+        self.geo.arc(self._last_tag_id, numb_segments, radius, start_angle, end_angle, wire_radius)
+        return self._last_tag_id
+
     def geometry_complete(self, is_gound_plane: bool = False, current_expansion: bool = True):
         """
             Call this function when done with making the geometry
@@ -380,6 +419,11 @@ class PyNECWrapper:
         """
         self._ex_wire = {'wire_id': wire_id, 'where_seg': int(place_seg)}
         self.nec.ex_card(0, wire_id, int(place_seg), 0, 1.0, 0, 0, 0, 0, 0)
+
+    def coordinate_transform(self, rot_x: float = 0, rot_y: float = 0, rot_z: float = 0,
+                             trans_x: float = 0, trans_y: float = 0, trans_z: float = 0,
+                             start_move_segment: int = 0, tag_increment: int = 0, array_numb: int = 0):
+        self.geo.move(rot_x, rot_y, rot_z, trans_x, trans_y, trans_z, start_move_segment, array_numb, tag_increment)
 
     def add_loading(self, loading_type: LoadingType, wire_id: int, start_seg: int, end_seg: int,
                     resistance: float = None, capacitance: float = None, inductance: float = None,
@@ -495,9 +539,11 @@ class PyNECWrapper:
             all_azimuth = rpt.get_phi_angles()
             if azimuth not in all_azimuth:
                 raise UserWarning("Elevation isn't part of the generated azimuths. Available are {}".format(all_azimuth))
-            gains_db = gains_db[:, np.where(all_azimuth == azimuth)[0][0]]
+            print(((azimuth+180) % 360), np.where(all_azimuth == ((azimuth+180) % 360)))
+            gains_db = np.append(gains_db[:, np.where(all_azimuth == azimuth)[0][0]], gains_db[:, np.where(all_azimuth == ((azimuth+180) % 360))[0][0]])
             ret.constant_azimuth = azimuth
-            ret.plot_theta = rpt.get_theta_angles()
+            ret.plot_theta = np.append(rpt.get_theta_angles(), (rpt.get_theta_angles() + 180))
+            print(ret.plot_theta)
 
         gains_db = 10.0**(gains_db / 10.0)
         ret.plot_theta = ret.plot_theta *np.pi / 180
@@ -508,7 +554,14 @@ class PyNECWrapper:
     def get_all_freq_3d_radiation_pattern(self) -> list[Radiation3DPatternData]:
         return [self.get_3d_radiation_pattern(i) for i in range(self.numb_freq_index)]
 
-    def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0):
+    def get_all_frequencies(self):
+        freqs = []
+        for i in range(self.numb_freq_index):
+            ipt = self.nec.get_input_parameters(i)
+            freqs.append(ipt.get_frequency())
+        return freqs
+
+    def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, show: bool = True) -> Graph3DRadiationPattern:
         """
             Function to plot the 3D radiation pattern of the antenna
         """
@@ -516,7 +569,9 @@ class PyNECWrapper:
             in_data = self.get_3d_radiation_pattern(freq_index)
 
         plot = Graph3DRadiationPattern(in_data)
-        plot.show()
+        if show:
+            plot.show()
+        return plot
 
     def plot_2d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, elevation: float = None, azimuth: float = None):
         if in_data is None:
