@@ -79,12 +79,14 @@ def set_axes_equal(ax):
 @dataclass
 class Radiation3DPatternData:
     """ A data class for a 3D radiation pattern data """
-    X: np.array = None      # An array of X data points for the radiation pattern
+
+    X: np.array = None
     Y: np.array = None      # An array of Y data points for the radiation pattern
     Z: np.array = None
     N: np.array = None
     gains: np.array = None
     freq: float = None
+    """ The frequency for this radiation pattern data """
 
 
 @dataclass
@@ -95,10 +97,20 @@ class Radiation2DPatternData:
     constant_elevation: float = None
     constant_azimuth: float = None
     freq: float = None
+    """ The frequency for this radiation pattern data """
 
 
 class Graph3DRadiationPattern:
+    """
+    A class for plotting 3D radiations patterns
+    """
     def __init__(self, in_data: typing.Union[Radiation3DPatternData, list[Radiation3DPatternData]], rotate: bool = False, elevation: float = 30):
+        """
+            Args:
+                in_data: A list of or a single Radiation3DPatternData data to plot
+                rotate: Set to True to rotate the radiation pattern as an animation
+                elevation: The elevation to set the initial camera view to
+        """
         self.data = in_data
         self.do_rotate = rotate
         self.elevation = elevation
@@ -135,32 +147,55 @@ class Graph3DRadiationPattern:
 
         self.m = cm.ScalarMappable(cmap=cm.jet)
         self.colorbar = self.fig.colorbar(self.m, shrink=0.8, ax=self.ax, label='dBi')
-        self.change_colorbar(i)
+        self._change_colorbar(i)
 
         if isinstance(in_data, list) or rotate is True:
             self.ani = animation.FuncAnimation(self.fig, self._update, self.numb_frames)
 
-    def change_colorbar(self, index):
+    def _change_colorbar(self, index):
+        """
+        Internal function to change the colorbar to an data index's gains
+        Args:
+            index: The index (or 0 in the case of a single data input) of what data to use to set the colorbar gain
+        """
         self.m.set_array(10*np.log10(self.data[index].gains))
         self.m.autoscale()
         self.m.changed()
 
-    def add_3d_lines(self, line_arr):
-        for l in line_arr:
-            self.ax.plot3D(*l)
-
     def show(self):
+        """
+        Shows the plot
+        """
         plt.show()
 
-    def export_to_gif(self, file_name):
+    def export_to_gif(self, file_name: str):
+        """
+        Exports the animation into a GIF
+        Args:
+            file_name: The export file name
+        """
+        if not file_name.endswith('.gif'):
+            file_name += '.gif'
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
-    def export_to_svg(self, file_name):
-        plt.savefig(file_name+'.svg')
+    def export(self, file_name: str):
+        """
+        Calls Matplotlib's `savefig` function to export the plot
+        Args:
+            file_name: The export file name with the desired extension
+        """
+        plt.savefig(file_name)
 
-    def export_to_mp4(self, file_name):
+    def export_to_mp4(self, file_name: str):
+        """
+        Exports the animation into an MP4 file
+        Args:
+            file_name (str):  The export file name
+        """
+        if not file_name.endswith('.mp4'):
+            file_name += '.mp4'
         writermp4 = animation.FFMpegWriter(fps=60)
-        self.ani.save(file_name+'.mp4', writer=writermp4, dpi=300)
+        self.ani.save(file_name, writer=writermp4, dpi=300)
 
     def _update(self, frame_numb):
         if self.multiple_data:
@@ -179,7 +214,14 @@ class Graph3DRadiationPattern:
 
 
 class Graph2DRadiationPattern:
+    """
+        A class for plotting 2D radiations patterns
+    """
     def __init__(self, in_data: typing.Union[Radiation2DPatternData, list[Radiation2DPatternData]]):
+        """
+            Args:
+                in_data: A list of or a single Radiation2DPatternData data to plot
+        """
         self.data = in_data     # type: list[Radiation2DPatternData]
         self.multiple_data = True
         if isinstance(self.data, Radiation2DPatternData):
@@ -198,7 +240,7 @@ class Graph2DRadiationPattern:
         self.ax.set_ylim(0, max_g)
         self.ax.yaxis.set_major_formatter(self._decibel_formatter)
 
-        self.set_plot_title(self.data[0])
+        self._set_plot_title(self.data[0])
 
         if isinstance(in_data, list):
             self.ani = animation.FuncAnimation(self.fig, self._update, self.numb_frames)
@@ -208,19 +250,52 @@ class Graph2DRadiationPattern:
         return "{:.2f}".format(10*np.log10(x))
 
     def show(self):
+        """
+        Shows the plot
+        """
         plt.show()
 
-    def export_to_gif(self, file_name):
+    def export_to_gif(self, file_name: str):
+        """
+        Exports the animation into a GIF
+        Args:
+            file_name (str): The export file name
+        """
+        if not file_name.endswith('.gif'):
+            file_name += '.gif'
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
-    def export_to_svg(self, file_name):
-        plt.savefig(file_name+'.svg')
+    def export(self, file_name: str):
+        """
+        Calls Matplotlib's `savefig` function to export the plot
+        Args:
+            file_name (str): The export file name with the desired extension
+        """
+        plt.savefig(file_name)
 
     def export_to_mp4(self, file_name):
+        """
+        Exports the animation into an MP4 file
+        Args:
+            file_name (str):  The export file name
+        """
+        if not file_name.endswith('.mp4'):
+            file_name += '.mp4'
         writermp4 = animation.FFMpegWriter(fps=60)
-        self.ani.save(file_name+'.mp4', writer=writermp4, dpi=300)
+        self.ani.save(file_name, writer=writermp4, dpi=300)
 
-    def export_to_latex(self, file_name):
+    def export_to_latex(self, file_name: str):
+        """
+        Exports the plot in a .pgf file
+        This function is experimental in the sense it must be called last, otherwise future plotting may not be possible
+        Args:
+            file_name (str): The export file name
+
+        Returns:
+
+        """
+        if not file_name.endswith('.pgf'):
+            file_name += '.pgf'
         old_backend = matplotlib.get_backend()
         matplotlib.use("pgf")
         matplotlib.rcParams.update({
@@ -229,16 +304,21 @@ class Graph2DRadiationPattern:
             'text.usetex': True,
             'pgf.rcfonts': False,
         })
-        plt.savefig(file_name+'.pgf')
+        plt.savefig(file_name)
         matplotlib.use(old_backend)
 
     def _update(self, frame_numb):
         if self.multiple_data:
             i = int((frame_numb / self.numb_frames) * len(self.data)) % len(self.data)
             self.plot1.set_data(self.data[i].plot_theta, self.data[i].plot_radius)
-            self.set_plot_title(self.data[i])
+            self._set_plot_title(self.data[i])
 
-    def set_plot_title(self, data: Radiation2DPatternData):
+    def _set_plot_title(self, data: Radiation2DPatternData):
+        """
+        Sets the plot title based off the curent data
+        Args:
+            data (Radiation2DPatternData): The Radiation2DPatternData to set the title based off
+        """
         title = "2D Radiation Plot for %.3f Mhz" % (data.freq/1e6)
         if data.constant_elevation is not None:
             title += " at %.1f degrees elevation" % data.constant_elevation
@@ -249,9 +329,14 @@ class Graph2DRadiationPattern:
 
 class GraphAntennaDesign:
     """
-        Class to animate and/or plot the antenna
+    A class for plotting the antenna design
     """
     def __init__(self, elevation: float = 30, rotate: bool = False):
+        """
+        Args:
+            elevation: The elevation to set the 3D view to
+            rotate: Set to True to create an animation where the antenna design is rotated
+        """
         self.elevation = elevation
         self.rotate = rotate
         self.fig = plt.figure()
@@ -284,6 +369,7 @@ class GraphAntennaDesign:
 
 
 class PyNECWrapper:
+    """The PyNEC Utilities / Wrapper"""
     def __init__(self):
         self.log = logging.getLogger('PyNECWrapper')
         self.nec = PyNEC.nec_context()
@@ -296,6 +382,7 @@ class PyNECWrapper:
         self.numb_freq_index = 0
 
     class LoadingType(enum.IntEnum):
+        """The loading type enumeration"""
         short_all = -1
         series_rlc = 0
         parallel_rlc = 1
@@ -304,13 +391,13 @@ class PyNECWrapper:
         impedance = 4
         wire_conductivity = 5
 
-    def import_file(self, file_name):
+    def import_file(self, file_name: str):
         """
             Imports a .nec file.
             This also imports it into our abstracted functions.
 
             Args:
-                - file_name (str): The name of the .nex file
+                file_name (str): The name of the .nex file
         """
         if not os.path.isfile(file_name):
             raise OSError()
@@ -360,19 +447,19 @@ class PyNECWrapper:
             else:
                 self.log.warning("Command {} is currently not supported. Please create a bug report on the GitHub repository".format(line[0]))
 
-    def add_wire(self, coords_1: list, coords_2: list, wire_rad: float, numb_segments: int, manual_wire_id: int = None):
+    def add_wire(self, coords_1: list, coords_2: list, wire_rad: float, numb_segments: int, manual_wire_id: int = None) -> int:
         """
-            Adds a wire to the NEC simulation
+        Adds a wire to the antenna's geometry
 
-            Args:
-                - coords_1: The start coordinates of the wire as a list [x0, y0, z0]
-                - coords_2: The start coordinates of the wire as a list [x1, y1, z1]
-                - wire_rad: THe radius of the wire
-                - numb_segments: The number of segments to split the wire into for the simulation
-                                 This should be at least ** / wavelenght
+        Args:
+            coords_1 (list): The start coordinates of the wire as a list [x0, y0, z0]
+            coords_2 (list): The start coordinates of the wire as a list [x1, y1, z1]
+            wire_rad (float): The radius of the wire
+            numb_segments (int): The number of segments to split the wire into for the simulation
+            manual_wire_id (int, optional): A geometry ID instead of it being auto assigned
 
-            Returns:
-                The internal WireID of the wire
+        Returns:
+            The geometry ID of the created wire
         """
         if manual_wire_id is None:
             # TODO: This may not be the best way to handle adding a manual ID wire, fix this later
@@ -388,7 +475,20 @@ class PyNECWrapper:
         self.geo.wire(self._last_tag_id, numb_segments, *coords_1, *coords_2, wire_rad, 1.0, 1.0)
         return self._last_tag_id
 
-    def add_arc(self, radius: float, start_angle: float, end_angle: float, wire_radius: float, numb_segments: int, manual_arc_id: int = None):
+    def add_arc(self, radius: float, start_angle: float, end_angle: float, wire_radius: float, numb_segments: int, manual_arc_id: int = None) -> int:
+        """
+        Adds an arc to the antenna's geometry
+        Args:
+            radius (float): The radius of the arc
+            start_angle (float): The start angle for the arc
+            end_angle (float): The end angle for the arc
+            wire_radius: The radius of the wire making up the arc
+            numb_segments (int): The number of segments to split the wire into for the simulation
+            manual_arc_id (int, optional): A geometry ID instead of it being auto assigned
+
+        Returns:
+            The geometry ID of the created arc
+        """
         if manual_arc_id is None:
             # TODO: This may not be the best way to handle adding a manual ID wire, fix this later
             self._last_tag_id += 1
@@ -399,7 +499,10 @@ class PyNECWrapper:
 
     def geometry_complete(self, is_gound_plane: bool = False, current_expansion: bool = True):
         """
-            Call this function when done with making the geometry
+        Call this function when done with making the geometry
+        Args:
+            is_gound_plane(bool, optional): Whether to add a ground plane to the simulation
+            current_expansion(bool, optional): Whether to use current expansion or not if there is a ground plane
         """
         if not is_gound_plane:
             self.nec.geometry_complete(0)
@@ -411,23 +514,54 @@ class PyNECWrapper:
 
     def add_exitation(self, wire_id: int, place_seg: int):
         """
-            Adds an exitation source
+        Adds an exitation source
 
-            Args:
-                wire_id (int): The WireID of the wire to apply the exitation on
-                place_seg: The segment of the wire to place the exitation on
+        Args:
+            wire_id (int): The WireID of the wire to apply the exitation on
+            place_seg (int): The segment of the wire to place the exitation on
         """
         self._ex_wire = {'wire_id': wire_id, 'where_seg': int(place_seg)}
         self.nec.ex_card(0, wire_id, int(place_seg), 0, 1.0, 0, 0, 0, 0, 0)
 
     def coordinate_transform(self, rot_x: float = 0, rot_y: float = 0, rot_z: float = 0,
                              trans_x: float = 0, trans_y: float = 0, trans_z: float = 0,
-                             start_move_segment: int = 0, tag_increment: int = 0, array_numb: int = 0):
-        self.geo.move(rot_x, rot_y, rot_z, trans_x, trans_y, trans_z, start_move_segment, array_numb, tag_increment)
+                             start_move_segment: int = 0, tag_increment: int = 0, numb_new_struct: int = 0):
+        """
+        Apply a coordinate transform. See the GM card for more details
+        Args:
+            rot_x (float, optional): Apply rotation of this degree along the x axis
+            rot_y (float, optional): Apply rotation of this degree along the y axis
+            rot_z (float, optional): Apply rotation of this degree along the z axis
+            trans_x (float, optional): Apply translation of this distance along the x axis
+            trans_y (float, optional): Apply translation of this distance along the y axis
+            trans_z (float, optional): Apply translation of this distance along the z axis
+            start_move_segment (int, optional): The start segment ID to select to move
+            tag_increment (int, optional): The increment of the new structures if tag_increment is not zero
+            numb_new_struct (int, optional): The number of new structures to generate
+        """
+        self.geo.move(rot_x, rot_y, rot_z, trans_x, trans_y, trans_z, start_move_segment, numb_new_struct, tag_increment)
 
     def add_loading(self, loading_type: LoadingType, wire_id: int, start_seg: int, end_seg: int,
                     resistance: float = None, capacitance: float = None, inductance: float = None,
                     reactance: float = None, conductivity: float = None):
+        """
+        Add loading to the geometry.
+
+        See NEC's LD card for more details on the input
+
+        Args:
+            loading_type (LoadingType): The loading type
+            wire_id: The geometry ID to apply the loading to
+            start_seg: The start segment in the selected geometry to apply the loading to
+            end_seg: The end segment in the selected geometry to apply the loading to
+            resistance: The resistance of the loading, if applicable
+            capacitance: The capacitance of the loading, if applicable
+            inductance: The inductance of the loading, if applicable
+            reactance: The reactance of the loading, if applicable
+            conductivity: The conductivity of the loading, if applicable
+
+        Raises UserWarning: Raises this exception if the loading type and required parameters don't match
+        """
         if reactance is None and loading_type == self.LoadingType.impedance:
             raise UserWarning("Not the right arguments")
         if conductivity is None and loading_type == self.LoadingType.wire_conductivity:
@@ -463,23 +597,23 @@ class PyNECWrapper:
 
     def set_single_f(self, freq: float):
         """
-            Sets a single frequency for the calculation
+        Sets a single frequency for the calculation
 
-            Args:
-                freq: The frequency to simulate for, in Mhz
+        Args:
+            freq (float): The frequency to simulate for, in Mhz
         """
         self.numb_freq_index = 1
         self.nec.fr_card(0, 1, freq, 0)
 
     def set_multiple_f(self, min_f, max_f: float = None, n: int = None, step: float = None):
         """
-            Set multiple frequencies for the calculation
+        Set multiple frequencies for the calculation
 
-            Args:
-                min_f: The minimum simulation frequency, in Mhz
-                max_f: The maximum simulation frequency, in Mhz. Either this or step are required
-                n: The number of frequency steps to simulate for
-                step: The frequency step. Required if max_f is not given
+        Args:
+            min_f (float): The minimum simulation frequency, in Mhz
+            max_f (float): The maximum simulation frequency, in Mhz. Either this or step are required
+            n (int): The number of frequency steps to simulate for
+            step (float): The frequency step in Mhz. Required if max_f is not given
         """
         if step is None:
             step = (max_f - min_f)/n
@@ -493,7 +627,10 @@ class PyNECWrapper:
 
     def get_3d_radiation_pattern(self, freq_index: int = 0) -> Radiation3DPatternData:
         """
-            Get the radiation pattern for a given frequency index
+        Get the radiation pattern data for a given frequency index
+        Args:
+            freq_index (int): The frequency index to get the radiation pattern data
+        Returns: Radiation3DPatternData
         """
         ret = Radiation3DPatternData()
         rpt = self.nec.get_radiation_pattern(freq_index)

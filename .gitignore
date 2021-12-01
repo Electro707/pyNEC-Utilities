@@ -3,3 +3,6 @@
 # PyCharm Specific Stuff
 .idea
 __pycache__
+
+# Docs stuff
+docs/_build
