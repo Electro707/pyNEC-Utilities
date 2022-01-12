@@ -1,6 +1,6 @@
 """
     PyNEC Utilities
-    Copyright (C) 2021 Electro707 (develop@electro707.com)
+    Copyright (C) 2022 Electro707 (develop@electro707.com)
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License

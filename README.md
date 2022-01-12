@@ -10,3 +10,4 @@ Coming Soon:tm:, probably after I finish cleaning up the API
 - Add axis label for graphs
 - Add elevation and azimuth plotting function
 - Add more docs
+- Add a CLI utility

@@ -13,15 +13,16 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../'))
+import pynec_utilities
 
 # -- Project information -----------------------------------------------------
 
 project = 'PyNEC-Utilities'
-copyright = '2021, Electro707'
+copyright = '2022, Electro707'
 author = 'Electro707'
 
 # The full version, including alpha/beta/rc tags
-release = 'alpha'
+release = pynec_utilities.__version__
 
 autodoc_member_order = 'bysource'
 

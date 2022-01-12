@@ -1,4 +1,4 @@
-.. module:: pynecutility
+.. module:: pynec_utilities
 
 API Reference
 ==========================================
