@@ -12,12 +12,12 @@ formats: all
 
 python:
   install:
-    - method: pip
-      path: numpy
     - requirements: requirements.txt
 
     
 build:
   os: ubuntu-20.04
+  apt_packages:
+    - python3-numpy
   tools:
     python: "3"
