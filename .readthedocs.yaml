@@ -13,11 +13,13 @@ formats: all
 python:
   install:
     - requirements: requirements.txt
-
     
 build:
   os: ubuntu-20.04
-  apt_packages:
-    - python3-numpy
   tools:
-    python: "3"
+    python: "3.8"
+  apt_packages:
+    - gcc
+    - g++
+    - libstdc++6
+    - python3-numpy

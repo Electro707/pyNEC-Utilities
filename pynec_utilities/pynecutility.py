@@ -104,7 +104,7 @@ class Graph3DRadiationPattern:
     """
     A class for plotting 3D radiations patterns
     """
-    def __init__(self, in_data: typing.Union[Radiation3DPatternData, list[Radiation3DPatternData]], rotate: bool = False, elevation: float = 30):
+    def __init__(self, in_data: typing.Union[Radiation3DPatternData, typing.List[Radiation3DPatternData]], rotate: bool = False, elevation: float = 30):
         """
             Args:
                 in_data: A list of or a single Radiation3DPatternData data to plot
@@ -217,12 +217,12 @@ class Graph2DRadiationPattern:
     """
         A class for plotting 2D radiations patterns
     """
-    def __init__(self, in_data: typing.Union[Radiation2DPatternData, list[Radiation2DPatternData]]):
+    def __init__(self, in_data: typing.Union[Radiation2DPatternData, typing.List[Radiation2DPatternData]]):
         """
             Args:
                 in_data: A list of or a single Radiation2DPatternData data to plot
         """
-        self.data = in_data     # type: list[Radiation2DPatternData]
+        self.data = in_data     # type: typing.List[Radiation2DPatternData]
         self.multiple_data = True
         if isinstance(self.data, Radiation2DPatternData):
             self.data = [self.data]
@@ -688,7 +688,7 @@ class PyNECWrapper:
 
         return ret
 
-    def get_all_freq_3d_radiation_pattern(self) -> list[Radiation3DPatternData]:
+    def get_all_freq_3d_radiation_pattern(self) -> typing.List[Radiation3DPatternData]:
         return [self.get_3d_radiation_pattern(i) for i in range(self.numb_freq_index)]
 
     def get_all_frequencies(self):
