@@ -1,0 +1,4 @@
+numpy
+matplotlib
+scipy
+docs/PyNEC-1.7.3.6-cp38-cp38-linux_x86_64.whl

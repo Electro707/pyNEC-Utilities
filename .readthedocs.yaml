@@ -12,7 +12,7 @@ formats: all
 
 python:
   install:
-    - requirements: requirements.txt
+    - requirements: rtd-requirements.txt
     
 build:
   os: ubuntu-20.04
@@ -20,6 +20,4 @@ build:
     python: "3.8"
   apt_packages:
     - gcc
-    - g++
     - libstdc++6
-    - python3-numpy
