@@ -81,8 +81,11 @@ class Radiation3DPatternData:
     """ A data class for a 3D radiation pattern data """
 
     X: np.array = None
-    Y: np.array = None      # An array of Y data points for the radiation pattern
+    """ An array of X data points for the radiation pattern """
+    Y: np.array = None
+    """ An array of Y data points for the radiation pattern """
     Z: np.array = None
+    """ An array of Z data points for the radiation pattern"""
     N: np.array = None
     gains: np.array = None
     freq: float = None
@@ -93,9 +96,13 @@ class Radiation3DPatternData:
 class Radiation2DPatternData:
     """ A data class for a 2D radiation pattern """
     plot_theta: np.array = None
+    """ A list of angles for a polar plot """
     plot_radius: np.array = None
+    """ A list of radius for a polar plot """
     constant_elevation: float = None
+    """ Of not None, this is the constant elevation for this data set """
     constant_azimuth: float = None
+    """ Of not None, this is the constant azimuth for this data set """
     freq: float = None
     """ The frequency for this radiation pattern data """
 
@@ -171,6 +178,7 @@ class Graph3DRadiationPattern:
     def export_to_gif(self, file_name: str):
         """
         Exports the animation into a GIF
+
         Args:
             file_name: The export file name
         """
@@ -181,6 +189,7 @@ class Graph3DRadiationPattern:
     def export(self, file_name: str):
         """
         Calls Matplotlib's `savefig` function to export the plot
+
         Args:
             file_name: The export file name with the desired extension
         """
@@ -189,6 +198,7 @@ class Graph3DRadiationPattern:
     def export_to_mp4(self, file_name: str):
         """
         Exports the animation into an MP4 file
+
         Args:
             file_name (str):  The export file name
         """
@@ -382,7 +392,9 @@ class PyNECWrapper:
         self.numb_freq_index = 0
 
     class LoadingType(enum.IntEnum):
-        """The loading type enumeration"""
+        """
+        The loading type enumeration. This is used for the :func:`PyNECWrapper.add_loading` function.
+        """
         short_all = -1
         series_rlc = 0
         parallel_rlc = 1
@@ -397,7 +409,7 @@ class PyNECWrapper:
             This also imports it into our abstracted functions.
 
             Args:
-                file_name (str): The name of the .nex file
+                file_name (str): The name of the .nec file
         """
         if not os.path.isfile(file_name):
             raise OSError()
@@ -478,6 +490,7 @@ class PyNECWrapper:
     def add_arc(self, radius: float, start_angle: float, end_angle: float, wire_radius: float, numb_segments: int, manual_arc_id: int = None) -> int:
         """
         Adds an arc to the antenna's geometry
+
         Args:
             radius (float): The radius of the arc
             start_angle (float): The start angle for the arc
@@ -500,6 +513,7 @@ class PyNECWrapper:
     def geometry_complete(self, is_gound_plane: bool = False, current_expansion: bool = True):
         """
         Call this function when done with making the geometry
+
         Args:
             is_gound_plane(bool, optional): Whether to add a ground plane to the simulation
             current_expansion(bool, optional): Whether to use current expansion or not if there is a ground plane
@@ -528,6 +542,7 @@ class PyNECWrapper:
                              start_move_segment: int = 0, tag_increment: int = 0, numb_new_struct: int = 0):
         """
         Apply a coordinate transform. See the GM card for more details
+
         Args:
             rot_x (float, optional): Apply rotation of this degree along the x axis
             rot_y (float, optional): Apply rotation of this degree along the y axis
@@ -586,10 +601,10 @@ class PyNECWrapper:
 
     def calculate(self, n: float):
         """
-            Calculates the antenna
+        Calculates the antenna
 
-            Args:
-                n: The number of segments for the delta and phi.
+        Args:
+            n: The number of segments for the delta and phi.
         """
         self.nec.rp_card(calc_mode=0, n_theta=n, n_phi=n, output_format=0, normalization=0, D=0, A=0, theta0=0,
                          delta_theta=180/(n-1), phi0=0, delta_phi=360/(n-1), radial_distance=0, gain_norm=0)
@@ -628,9 +643,11 @@ class PyNECWrapper:
     def get_3d_radiation_pattern(self, freq_index: int = 0) -> Radiation3DPatternData:
         """
         Get the radiation pattern data for a given frequency index
+
         Args:
             freq_index (int): The frequency index to get the radiation pattern data
-        Returns: Radiation3DPatternData
+
+        Returns: :class:`Radiation3DPatternData`
         """
         ret = Radiation3DPatternData()
         rpt = self.nec.get_radiation_pattern(freq_index)
@@ -656,6 +673,19 @@ class PyNECWrapper:
         return ret
 
     def get_2d_radiation_pattern(self, freq_index: int = 0, elevation: float = None, azimuth: float = None) -> Radiation2DPatternData:
+        """
+        Get the 2D radiation pattern data.
+
+        Args:
+            freq_index (int): The frequency index for the radiation pattern. Defaults to zero
+            elevation (float): The elevation to set for the 2D radiation pattern
+            azimuth (float): The azimuth to set for the 2D radiation pattern
+
+        .. note::
+            You must set either `elevation` or `azimuth` to some angle value, but not both.
+
+        Returns: :class:`Radiation2DPatternData`
+        """
         if elevation is None and azimuth is None:
             raise UserWarning("Must either given an elevation or azimuth")
         if elevation is not None and azimuth is not None:
@@ -689,9 +719,17 @@ class PyNECWrapper:
         return ret
 
     def get_all_freq_3d_radiation_pattern(self) -> typing.List[Radiation3DPatternData]:
+        """
+        Get 3D radiation pattern data for all frequencies simulated
+
+        Returns: A list of :class:`Radiation3DPatternData`
+        """
         return [self.get_3d_radiation_pattern(i) for i in range(self.numb_freq_index)]
 
-    def get_all_frequencies(self):
+    def get_all_frequencies(self) -> list:
+        """
+        Returns: A list of all frequencies simulated
+        """
         freqs = []
         for i in range(self.numb_freq_index):
             ipt = self.nec.get_input_parameters(i)
@@ -701,6 +739,13 @@ class PyNECWrapper:
     def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, show: bool = True) -> Graph3DRadiationPattern:
         """
             Function to plot the 3D radiation pattern of the antenna
+
+            Args:
+                in_data (:class:`Radiation3DPatternData`): A :class:`Radiation3DPatternData` data set. If none, this function will calculate it using the simulated results
+                freq_index (int): The frequency index to plot the 3D radiation pattern for if `in_data` is not given
+                show (bool): Whether to show a plot of the 3D radiation plot to the user. Defaults to True
+
+            Returns: :class:`Graph3DRadiationPattern`
         """
         if in_data is None:
             in_data = self.get_3d_radiation_pattern(freq_index)
@@ -721,22 +766,42 @@ class PyNECWrapper:
 
     # Partially copied from https://github.com/tmolteno/python-necpp/blob/master/PyNEC/example/antenna_util.py
     @staticmethod
-    def get_reflection_coefficient(z, z0):
+    def get_reflection_coefficient(z: float, z0: float) -> float:
+        """
+        Calculates the reflection coefficient
+
+        Args:
+            z: The impedance of the device
+            z0: The characteristic impedance
+
+        Returns:
+            The reflection coefficient
+        """
         return np.abs((z - z0)/(z + z0))
 
-    def calculate_vswr(self, z, z0):
+    def calculate_vswr(self, z: float, z0: float) -> float:
+        """
+        Calculates the VSWR of a system
+
+        Args:
+            z: The impedance of the device
+            z0: The characteristic impedance
+
+        Returns:
+            The VSWR
+        """
         gamma = self.get_reflection_coefficient(z, z0)
         return float((1+gamma) / (1-gamma))
 
-    def get_vswr(self, z0: float = 50.0):
+    def get_vswr(self, z0: float = 50.0) -> typing.Tuple[list, list]:
         """
-            Gets the VSWR for the given calculation frequency or frequencies.
+        Gets the VSWR for the given calculation frequency or frequencies.
 
-            Args:
-                z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
+        Args:
+            z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
 
-            Returns:
-                A tuple 2 lists, one for frequencies and the other for the VSWR
+        Returns:
+            A tuple 2 lists, one for frequencies and the other for the VSWR
         """
         freqs, vswrs = [], []
         for i in range(self.numb_freq_index):

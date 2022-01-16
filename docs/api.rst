@@ -6,6 +6,10 @@ API Reference
 Python Documentation
 ++++++++++++++++++++++++
 
+.. autoclass:: PyNECWrapper
+  :members:
+  :undoc-members:
+
 .. autoclass:: Radiation3DPatternData
   :members:
   :undoc-members:
@@ -14,6 +18,10 @@ Python Documentation
   :members:
   :undoc-members:
 
-.. autoclass:: PyNECWrapper
+.. autoclass:: Graph3DRadiationPattern
+  :members:
+  :undoc-members:
+
+.. autoclass:: Graph2DRadiationPattern
   :members:
   :undoc-members:
