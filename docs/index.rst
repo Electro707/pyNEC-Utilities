@@ -10,5 +10,5 @@ Table of Contents:
 ++++++++++++++++++++++++++++++++++++
 .. toctree::
 
+    cli
     api
-
