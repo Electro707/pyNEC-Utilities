@@ -207,6 +207,27 @@ class Graph3DRadiationPattern:
         writermp4 = animation.FFMpegWriter(fps=60)
         self.ani.save(file_name, writer=writermp4, dpi=300)
 
+    def export_to_latex(self, file_name: str):
+        """
+        Exports the plot in a .pgf file
+        This function is experimental in the sense it must be called last, otherwise future plotting may not be possible
+
+        Args:
+            file_name (str): The export file name
+        """
+        if not file_name.endswith('.pgf'):
+            file_name += '.pgf'
+        #old_backend = matplotlib.get_backend()
+        matplotlib.use("pgf")
+        matplotlib.rcParams.update({
+            "pgf.texsystem": "pdflatex",
+            'font.family': 'serif',
+            'text.usetex': True,
+            'pgf.rcfonts': False,
+        })
+        plt.savefig(file_name)
+        #matplotlib.use(old_backend)
+
     def _update(self, frame_numb):
         if self.multiple_data:
             i = int((frame_numb / (self.numb_frames/2)) * len(self.data)) % len(self.data)
@@ -268,6 +289,7 @@ class Graph2DRadiationPattern:
     def export_to_gif(self, file_name: str):
         """
         Exports the animation into a GIF
+
         Args:
             file_name (str): The export file name
         """
@@ -278,6 +300,7 @@ class Graph2DRadiationPattern:
     def export(self, file_name: str):
         """
         Calls Matplotlib's `savefig` function to export the plot
+
         Args:
             file_name (str): The export file name with the desired extension
         """
@@ -286,6 +309,7 @@ class Graph2DRadiationPattern:
     def export_to_mp4(self, file_name):
         """
         Exports the animation into an MP4 file
+
         Args:
             file_name (str):  The export file name
         """
@@ -298,15 +322,13 @@ class Graph2DRadiationPattern:
         """
         Exports the plot in a .pgf file
         This function is experimental in the sense it must be called last, otherwise future plotting may not be possible
+
         Args:
             file_name (str): The export file name
-
-        Returns:
-
         """
         if not file_name.endswith('.pgf'):
             file_name += '.pgf'
-        old_backend = matplotlib.get_backend()
+        # old_backend = matplotlib.get_backend()
         matplotlib.use("pgf")
         matplotlib.rcParams.update({
             "pgf.texsystem": "pdflatex",
@@ -315,7 +337,7 @@ class Graph2DRadiationPattern:
             'pgf.rcfonts': False,
         })
         plt.savefig(file_name)
-        matplotlib.use(old_backend)
+        # matplotlib.use(old_backend)
 
     def _update(self, frame_numb):
         if self.multiple_data:
@@ -325,7 +347,8 @@ class Graph2DRadiationPattern:
 
     def _set_plot_title(self, data: Radiation2DPatternData):
         """
-        Sets the plot title based off the curent data
+        Sets the plot title based off the current data
+
         Args:
             data (Radiation2DPatternData): The Radiation2DPatternData to set the title based off
         """
@@ -344,7 +367,7 @@ class GraphAntennaDesign:
     def __init__(self, elevation: float = 30, rotate: bool = False):
         """
         Args:
-            elevation: The elevation to set the 3D view to
+            elevation: The elevation to set the 3D view to. Defaults to 30
             rotate: Set to True to create an animation where the antenna design is rotated
         """
         self.elevation = elevation
@@ -358,8 +381,10 @@ class GraphAntennaDesign:
 
     def export_to_mp4(self, file_name):
         """
-            Export an animation, if initialized with rotate=True, of the
-            antenna rotating
+        Export an animation, if initialized with rotate=True, of the antenna rotating
+
+        Args:
+            file_name (str):  The export file name
         """
         if self.rotate is False:
             raise UserWarning("Class is not set to rotate, cannot export animation")
@@ -372,7 +397,7 @@ class GraphAntennaDesign:
 
     def show(self):
         """
-            Show the plot
+        Show the plot
         """
         set_axes_equal(self.ax)
         plt.show()
@@ -405,11 +430,10 @@ class PyNECWrapper:
 
     def import_file(self, file_name: str):
         """
-            Imports a .nec file.
-            This also imports it into our abstracted functions.
+        Imports a .nec file as the antenna model
 
-            Args:
-                file_name (str): The name of the .nec file
+        Args:
+            file_name (str): The name of the .nec file
         """
         if not os.path.isfile(file_name):
             raise OSError()
@@ -528,7 +552,7 @@ class PyNECWrapper:
 
     def add_exitation(self, wire_id: int, place_seg: int):
         """
-        Adds an exitation source
+        Adds an excitation source
 
         Args:
             wire_id (int): The WireID of the wire to apply the exitation on
@@ -541,7 +565,7 @@ class PyNECWrapper:
                              trans_x: float = 0, trans_y: float = 0, trans_z: float = 0,
                              start_move_segment: int = 0, tag_increment: int = 0, numb_new_struct: int = 0):
         """
-        Apply a coordinate transform. See the GM card for more details
+        Apply a coordinate transform. See the `NEC's GM <https://www.nec2.org/part_3/cards/gm.html>`_ for more details
 
         Args:
             rot_x (float, optional): Apply rotation of this degree along the x axis
@@ -562,7 +586,7 @@ class PyNECWrapper:
         """
         Add loading to the geometry.
 
-        See NEC's LD card for more details on the input
+        See `NEC's LD card <https://www.nec2.org/part_3/cards/ld.html>`_ for more details on the input
 
         Args:
             loading_type (LoadingType): The loading type
@@ -738,14 +762,15 @@ class PyNECWrapper:
 
     def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, show: bool = True) -> Graph3DRadiationPattern:
         """
-            Function to plot the 3D radiation pattern of the antenna
+        Function to plot the 3D radiation pattern of the antenna
 
-            Args:
-                in_data (:class:`Radiation3DPatternData`): A :class:`Radiation3DPatternData` data set. If none, this function will calculate it using the simulated results
-                freq_index (int): The frequency index to plot the 3D radiation pattern for if `in_data` is not given
-                show (bool): Whether to show a plot of the 3D radiation plot to the user. Defaults to True
+        Args:
+            in_data (:class:`Radiation3DPatternData`): A :class:`Radiation3DPatternData` data set. If none, this function will calculate it using the simulated results
+            freq_index (int): The frequency index to plot the 3D radiation pattern for if `in_data` is not given
+            show (bool): Whether to show a plot of the 3D radiation plot to the user. Defaults to True
 
-            Returns: :class:`Graph3DRadiationPattern`
+        Returns:
+            :class:`Graph3DRadiationPattern`
         """
         if in_data is None:
             in_data = self.get_3d_radiation_pattern(freq_index)
@@ -755,20 +780,36 @@ class PyNECWrapper:
             plot.show()
         return plot
 
-    def plot_2d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, elevation: float = None, azimuth: float = None):
+    def plot_2d_radiation_pattern(self, in_data: Radiation2DPatternData = None, freq_index: int = 0, elevation: float = None, azimuth: float = None) -> Graph2DRadiationPattern:
+        """
+        Plots the 2D radiation pattern
+
+        Args:
+            in_data (:class:`Radiation2DPatternData`): A :class:`Radiation2DPatternData` data set. If none, this function will calculate it using the simulated results
+            freq_index (int): The frequency index to plot the 3D radiation pattern for if `in_data` is not given
+            elevation (float): The elevation to set for the 2D radiation pattern
+            azimuth (float): The azimuth to set for the 2D radiation pattern
+
+        .. note::
+            You must set either `elevation` or `azimuth` to some angle value, but not both.
+
+            If `in_data` is given, you do not need to give `elevation` or `azimuth`
+
+        Returns:
+            :class:`Graph2DRadiationPattern`
+        """
         if in_data is None:
             in_data = self.get_2d_radiation_pattern(freq_index, elevation, azimuth)
 
-        print(in_data.plot_theta)
-        print(in_data.plot_radius)
         plot = Graph2DRadiationPattern(in_data)
         plot.show()
 
-    # Partially copied from https://github.com/tmolteno/python-necpp/blob/master/PyNEC/example/antenna_util.py
     @staticmethod
     def get_reflection_coefficient(z: float, z0: float) -> float:
         """
         Calculates the reflection coefficient
+
+        Partially copied from https://github.com/tmolteno/python-necpp/blob/master/PyNEC/example/antenna_util.py
 
         Args:
             z: The impedance of the device
@@ -813,10 +854,10 @@ class PyNECWrapper:
 
     def plot_swr(self, z0: float = 50.0):
         """
-            Plots the VSWR of the antenna
+        Plots the VSWR of the antenna
 
-            Args:
-                z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
+        Args:
+            z0 (float): The impedance to calcular the VSRW over. Defaults to 50 ohms
         """
         if self.numb_freq_index == 1:
             raise UserWarning("Must have more than 1 frequency point in order to create a SWR plot")
@@ -831,8 +872,10 @@ class PyNECWrapper:
 
     def add_antenna_to_axis(self, ax: plt.Axes):
         """
-            WORK-In-Progress Function
-            Adds surface plots for the antenna wires and elements to a MatPlotLib axis
+        .. warning::
+            Work-In-Progress Function
+
+        Adds surface plots for the antenna wires and elements to a MatPlotLib axis
         """
         def create_cyclinder(wire_coords: list, thickness: float):
             # https://stackoverflow.com/questions/32317247/how-to-draw-a-cylinder-using-matplotlib-along-length-of-point-x1-y1-and-x2-y2
