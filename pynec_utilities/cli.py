@@ -22,8 +22,9 @@ from pynec_utilities import pynecutility
 
 @click.group()
 @click.argument('nec_file', type=click.Path(exists=True))
+@click.option('--single-frequency', '-f', type=float, help="Set the freqency for the simulation")
 @click.pass_context
-def cli(ctx, nec_file):
+def cli(ctx, nec_file, single_frequency):
     """
     A command line utility for PyNEC Ulitities
 
@@ -32,8 +33,13 @@ def cli(ctx, nec_file):
     ctx.ensure_object(dict)
 
     n = pynecutility.PyNECWrapper()
-    n.import_file(nec_file)
-    n.calculate(36)
+
+    rp_values = n.import_file(nec_file)
+
+    if single_frequency is not None:
+        n.set_single_f(single_frequency)
+
+    n.nec.rp_card(*rp_values)
 
     ctx.obj['nec_wrapper'] = n
 

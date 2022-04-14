@@ -16,7 +16,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
-from pynec_utilities.pynecutility import Radiation3DPatternData, Radiation2DPatternData
+from pynec_utilities.pynecutility import Radiation3DPatternSurface, Radiation2DPatternData, RadiationPatternData
 from pynec_utilities.pynecutility import Graph3DRadiationPattern, Graph2DRadiationPattern
 from pynec_utilities.pynecutility import PyNECWrapper
 

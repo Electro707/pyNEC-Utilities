@@ -77,8 +77,8 @@ def set_axes_equal(ax):
 
 
 @dataclass
-class Radiation3DPatternData:
-    """ A data class for a 3D radiation pattern data """
+class Radiation3DPatternSurface:
+    """ A dataclass for a 3D radiation pattern data used for a surface plot """
 
     X: np.array = None
     """ An array of X data points for the radiation pattern """
@@ -87,7 +87,9 @@ class Radiation3DPatternData:
     Z: np.array = None
     """ An array of Z data points for the radiation pattern"""
     N: np.array = None
+    """ A array of normalized distance from the origin for any given X,Y,Z data point. Used for coloring the face"""
     gains: np.array = None
+    """A 2D array of all gains"""
     freq: float = None
     """ The frequency for this radiation pattern data """
 
@@ -95,26 +97,40 @@ class Radiation3DPatternData:
 @dataclass
 class Radiation2DPatternData:
     """ A data class for a 2D radiation pattern """
+
     plot_theta: np.array = None
     """ A list of angles for a polar plot """
     plot_radius: np.array = None
     """ A list of radius for a polar plot """
     constant_elevation: float = None
-    """ Of not None, this is the constant elevation for this data set """
+    """ If not None, this is the constant elevation for this data set """
     constant_azimuth: float = None
-    """ Of not None, this is the constant azimuth for this data set """
+    """ If not None, this is the constant azimuth for this data set """
     freq: float = None
     """ The frequency for this radiation pattern data """
+
+
+@dataclass
+class RadiationPatternData:
+    """ A dataclass containing all data related to a 3D radiation pattern"""
+    thetas: np.array = None
+    """A list of thetas"""
+    phis: np.array = None
+    """A list of phis"""
+    gains: np.array = None
+    """A 2D array containing the gains with an index of [theta, phi]"""
+    freq: float = None
+    """The frequency for this radiation pattern data"""
 
 
 class Graph3DRadiationPattern:
     """
     A class for plotting 3D radiations patterns
     """
-    def __init__(self, in_data: typing.Union[Radiation3DPatternData, typing.List[Radiation3DPatternData]], rotate: bool = False, elevation: float = 30):
+    def __init__(self, in_data: typing.Union[Radiation3DPatternSurface, typing.List[Radiation3DPatternSurface]], rotate: bool = False, elevation: float = 30):
         """
             Args:
-                in_data: A list of or a single Radiation3DPatternData data to plot
+                in_data: A list of or a single :class:`Radiation3DPatternSurface` data to plot
                 rotate: Set to True to rotate the radiation pattern as an animation
                 elevation: The elevation to set the initial camera view to
         """
@@ -122,7 +138,7 @@ class Graph3DRadiationPattern:
         self.do_rotate = rotate
         self.elevation = elevation
         self.multiple_data = True
-        if isinstance(self.data, Radiation3DPatternData):
+        if isinstance(self.data, Radiation3DPatternSurface):
             self.data = [self.data]
             self.multiple_data = False
         if self.do_rotate:
@@ -169,7 +185,8 @@ class Graph3DRadiationPattern:
         self.m.autoscale()
         self.m.changed()
 
-    def show(self):
+    @staticmethod
+    def show():
         """
         Shows the plot
         """
@@ -186,7 +203,8 @@ class Graph3DRadiationPattern:
             file_name += '.gif'
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
-    def export(self, file_name: str):
+    @staticmethod
+    def export(file_name: str):
         """
         Calls Matplotlib's `savefig` function to export the plot
 
@@ -207,7 +225,8 @@ class Graph3DRadiationPattern:
         writermp4 = animation.FFMpegWriter(fps=60)
         self.ani.save(file_name, writer=writermp4, dpi=300)
 
-    def export_to_latex(self, file_name: str):
+    @staticmethod
+    def export_to_latex(file_name: str):
         """
         Exports the plot in a .pgf file
         This function is experimental in the sense it must be called last, otherwise future plotting may not be possible
@@ -280,7 +299,8 @@ class Graph2DRadiationPattern:
     def _decibel_formatter(x, pos):
         return "{:.2f}".format(10*np.log10(x))
 
-    def show(self):
+    @staticmethod
+    def show():
         """
         Shows the plot
         """
@@ -297,7 +317,8 @@ class Graph2DRadiationPattern:
             file_name += '.gif'
         self.ani.save(file_name, dpi=300, fps=60, writer='ffmpeg')
 
-    def export(self, file_name: str):
+    @staticmethod
+    def export(file_name: str):
         """
         Calls Matplotlib's `savefig` function to export the plot
 
@@ -318,7 +339,8 @@ class Graph2DRadiationPattern:
         writermp4 = animation.FFMpegWriter(fps=60)
         self.ani.save(file_name, writer=writermp4, dpi=300)
 
-    def export_to_latex(self, file_name: str):
+    @staticmethod
+    def export_to_latex(file_name: str):
         """
         Exports the plot in a .pgf file
         This function is experimental in the sense it must be called last, otherwise future plotting may not be possible
@@ -428,12 +450,16 @@ class PyNECWrapper:
         impedance = 4
         wire_conductivity = 5
 
-    def import_file(self, file_name: str):
+    def import_file(self, file_name: str, do_calculation: bool = False):
         """
-        Imports a .nec file as the antenna model
+        Imports a .nec file as the antenna model.
 
         Args:
             file_name (str): The name of the .nec file
+            do_calculation (bool): Whether to execute the simulation, or leave it to the user
+
+        Returns:
+            The arguments that can be given to an RP card with necwrapper.nec.rp_card(*returned_value)
         """
         if not os.path.isfile(file_name):
             raise OSError()
@@ -452,7 +478,7 @@ class PyNECWrapper:
             elif line[0] == 'GE':
                 self.nec.geometry_complete(int(line[1]))     # Call the nec class's geometry_complete directly
             elif line[0] == 'EX':
-                self.add_exitation(int(line[2]), int(line[3]))
+                self.add_excitation(int(line[2]), int(line[3]))
             elif line[0] == 'FR':
                 if int(line[2]) == 1:
                     self.set_single_f(float(line[5]))
@@ -479,9 +505,11 @@ class PyNECWrapper:
             elif line[0] == 'EN':
                 self.log.debug("Reached end of line")
                 self.log.debug("Creating an rp cart: {}".format(rp_card_args))
-                self.nec.rp_card(*rp_card_args)
+                if do_calculation:
+                    self.nec.rp_card(*rp_card_args)
             else:
                 self.log.warning("Command {} is currently not supported. Please create a bug report on the GitHub repository".format(line[0]))
+        return rp_card_args
 
     def add_wire(self, coords_1: list, coords_2: list, wire_rad: float, numb_segments: int, manual_wire_id: int = None) -> int:
         """
@@ -550,7 +578,7 @@ class PyNECWrapper:
             else:
                 self.nec.geometry_complete(-1)
 
-    def add_exitation(self, wire_id: int, place_seg: int):
+    def add_excitation(self, wire_id: int, place_seg: int):
         """
         Adds an excitation source
 
@@ -664,16 +692,16 @@ class PyNECWrapper:
         self.numb_freq_index = n
         self.nec.fr_card(0, n, min_f, step)
 
-    def get_3d_radiation_pattern(self, freq_index: int = 0) -> Radiation3DPatternData:
+    def get_3d_radiation_surface(self, freq_index: int = 0) -> Radiation3DPatternSurface:
         """
         Get the radiation pattern data for a given frequency index
 
         Args:
             freq_index (int): The frequency index to get the radiation pattern data
 
-        Returns: :class:`Radiation3DPatternData`
+        Returns: :class:`Radiation3DPatternSurface`
         """
-        ret = Radiation3DPatternData()
+        ret = Radiation3DPatternSurface()
         rpt = self.nec.get_radiation_pattern(freq_index)
         ret.freq = rpt.get_frequency()
 
@@ -693,6 +721,27 @@ class PyNECWrapper:
         N = np.sqrt(ret.X**2 + ret.Y**2 + ret.Z**2)
         Rmax = np.max(N)
         ret.N = N/Rmax
+
+        return ret
+
+    def get_radiation_pattern(self, freq_index: int = 0) -> RadiationPatternData:
+        """
+        Gets the raw radiation pattern data from PyNEC, but with the gain return in linear values as opposed to db
+
+        Args:
+            freq_index (int): The frequency index to get the radiation pattern data
+
+        Returns: :class:`RadiationPatternData`
+
+        """
+        ret = RadiationPatternData()
+        rpt = self.nec.get_radiation_pattern(freq_index)
+        ret.freq = rpt.get_frequency()
+
+        gains_db = rpt.get_gain()
+        ret.gains = 10.0**(gains_db / 10.0)
+        ret.thetas = rpt.get_theta_angles()
+        ret.phis = rpt.get_phi_angles()
 
         return ret
 
@@ -730,11 +779,11 @@ class PyNECWrapper:
             all_azimuth = rpt.get_phi_angles()
             if azimuth not in all_azimuth:
                 raise UserWarning("Elevation isn't part of the generated azimuths. Available are {}".format(all_azimuth))
-            print(((azimuth+180) % 360), np.where(all_azimuth == ((azimuth+180) % 360)))
+            # print(((azimuth+180) % 360), np.where(all_azimuth == ((azimuth+180) % 360)))
             gains_db = np.append(gains_db[:, np.where(all_azimuth == azimuth)[0][0]], gains_db[:, np.where(all_azimuth == ((azimuth+180) % 360))[0][0]])
             ret.constant_azimuth = azimuth
             ret.plot_theta = np.append(rpt.get_theta_angles(), (rpt.get_theta_angles() + 180))
-            print(ret.plot_theta)
+            # print(ret.plot_theta)
 
         gains_db = 10.0**(gains_db / 10.0)
         ret.plot_theta = ret.plot_theta *np.pi / 180
@@ -742,13 +791,13 @@ class PyNECWrapper:
 
         return ret
 
-    def get_all_freq_3d_radiation_pattern(self) -> typing.List[Radiation3DPatternData]:
+    def get_all_freq_3d_radiation_pattern(self) -> typing.List[Radiation3DPatternSurface]:
         """
         Get 3D radiation pattern data for all frequencies simulated
 
-        Returns: A list of :class:`Radiation3DPatternData`
+        Returns: A list of :class:`Radiation3DPatternSurface`
         """
-        return [self.get_3d_radiation_pattern(i) for i in range(self.numb_freq_index)]
+        return [self.get_3d_radiation_surface(i) for i in range(self.numb_freq_index)]
 
     def get_all_frequencies(self) -> list:
         """
@@ -760,12 +809,12 @@ class PyNECWrapper:
             freqs.append(ipt.get_frequency())
         return freqs
 
-    def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternData = None, freq_index: int = 0, show: bool = True) -> Graph3DRadiationPattern:
+    def plot_3d_radiation_pattern(self, in_data: Radiation3DPatternSurface = None, freq_index: int = 0, show: bool = True) -> Graph3DRadiationPattern:
         """
         Function to plot the 3D radiation pattern of the antenna
 
         Args:
-            in_data (:class:`Radiation3DPatternData`): A :class:`Radiation3DPatternData` data set. If none, this function will calculate it using the simulated results
+            in_data (:class:`Radiation3DPatternSurface`): A :class:`Radiation3DPatternSurface` data set. If none, this function will calculate it using the simulated results
             freq_index (int): The frequency index to plot the 3D radiation pattern for if `in_data` is not given
             show (bool): Whether to show a plot of the 3D radiation plot to the user. Defaults to True
 
@@ -773,14 +822,14 @@ class PyNECWrapper:
             :class:`Graph3DRadiationPattern`
         """
         if in_data is None:
-            in_data = self.get_3d_radiation_pattern(freq_index)
+            in_data = self.get_3d_radiation_surface(freq_index)
 
         plot = Graph3DRadiationPattern(in_data)
         if show:
             plot.show()
         return plot
 
-    def plot_2d_radiation_pattern(self, in_data: Radiation2DPatternData = None, freq_index: int = 0, elevation: float = None, azimuth: float = None) -> Graph2DRadiationPattern:
+    def plot_2d_radiation_pattern(self, in_data: Radiation2DPatternData = None, freq_index: int = 0, elevation: float = None, azimuth: float = None, show: bool = True) -> Graph2DRadiationPattern:
         """
         Plots the 2D radiation pattern
 
@@ -802,7 +851,9 @@ class PyNECWrapper:
             in_data = self.get_2d_radiation_pattern(freq_index, elevation, azimuth)
 
         plot = Graph2DRadiationPattern(in_data)
-        plot.show()
+        if show:
+            plot.show()
+        return plot
 
     @staticmethod
     def get_reflection_coefficient(z: float, z0: float) -> float:
@@ -914,8 +965,7 @@ if __name__ == '__main__':
     dipole_sim = PyNECWrapper()
     w_id = dipole_sim.add_wire([0, 0, -1], [0, 0, 1], 0.03, 36)
     dipole_sim.geometry_complete()
-    dipole_sim.add_exitation(w_id, 18)
+    dipole_sim.add_excitation(w_id, 18)
     dipole_sim.set_single_f(144)
     dipole_sim.calculate(36)
-    anim_r = Graph3DRadiationPattern(dipole_sim.get_3d_radiation_pattern())
-    anim_r.show()
+    dipole_sim.plot_3d_radiation_pattern()

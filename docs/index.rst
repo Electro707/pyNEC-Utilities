@@ -8,4 +8,5 @@ Table of Contents:
 .. toctree::
 
     cli
+    examples
     api

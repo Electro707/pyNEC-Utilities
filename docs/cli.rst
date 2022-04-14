@@ -7,3 +7,7 @@ This utility is invoked with `pynec-utilities`.
 This command line tool allows for the following:
 
 - Plot a 3D radiation pattern of the antenna
+
+.. code-block:: bash
+
+    pynec-utilities FILE.nec plot-3d

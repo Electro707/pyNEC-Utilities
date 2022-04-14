@@ -10,7 +10,11 @@ Python Documentation
   :members:
   :undoc-members:
 
-.. autoclass:: Radiation3DPatternData
+.. autoclass:: RadiationPatternData
+  :members:
+  :undoc-members:
+
+.. autoclass:: Radiation3DPatternSurface
   :members:
   :undoc-members:
 
