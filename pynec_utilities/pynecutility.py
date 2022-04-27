@@ -25,6 +25,7 @@ from dataclasses import dataclass
 import matplotlib
 from mpl_toolkits.mplot3d import art3d
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 from matplotlib import cm, colors
 import matplotlib.animation as animation
 from scipy.linalg import norm
@@ -127,6 +128,10 @@ class Graph3DRadiationPattern:
     """
     A class for plotting 3D radiations patterns
     """
+    def log_tick_formatter(self, val, pos=None):
+        """Internal formatter to format ticks in dB"""
+        return f"${10*np.log10(val):0.2f}$"
+
     def __init__(self, in_data: typing.Union[Radiation3DPatternSurface, typing.List[Radiation3DPatternSurface]], rotate: bool = False, elevation: float = 30):
         """
             Args:
@@ -149,10 +154,20 @@ class Graph3DRadiationPattern:
         # if not isinstance(self.data, list) and rotate is False:
         #     raise UserWarning("Not rotating nor is animating the pattern")
 
-        g_l = [j.gains for j in self.data]
+        g_l = np.array([j.gains for j in self.data])
         i, i2, i3 = np.unravel_index(np.argmax(g_l), np.shape(g_l))
         max_g = self.data[i].gains[i2][i3]
-        self.mycol = cm.jet(self.data[i].N)
+
+        #V = self.data[0].N
+        #v = 10*np.log10(g_l.flatten())
+        V = self.data[0].N
+
+        #print(v.max().max(), v.min().min(), V.shape)
+        #norm = matplotlib.colors.PowerNorm(3, vmin=V.min().min(), vmax=V.max().max())
+        norm = matplotlib.colors.Normalize(vmin=V.min().min(), vmax=V.max().max())
+        #norm = matplotlib.colors.LogNorm(vmin=V.min().min(), vmax=V.max().max())
+
+        self.mycol = cm.jet(norm(V))
 
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
@@ -168,22 +183,24 @@ class Graph3DRadiationPattern:
                             bottom=False, top=False, left=False, right=False)
         self.ax.set_title("3D Radiation Plot for %.3f Mhz" % (self.data[0].freq/1e6))
 
-        self.m = cm.ScalarMappable(cmap=cm.jet)
-        self.colorbar = self.fig.colorbar(self.m, shrink=0.8, ax=self.ax, label='dBi')
-        self._change_colorbar(i)
+        self.m = cm.ScalarMappable(cmap=cm.jet, norm=norm)
+        #self.colorbar = self.fig.colorbar(self.plot1, shrink=0.8, ax=self.ax, label='dBi')
+        self.colorbar = self.fig.colorbar(self.m, shrink=0.8, ax=self.ax, label='dBi', norm=norm, format=mticker.FuncFormatter(self.log_tick_formatter))
+        #, format=mticker.FuncFormatter(self.log_tick_formatter)
+        #self._change_colorbar(i)
 
         if isinstance(in_data, list) or rotate is True:
             self.ani = animation.FuncAnimation(self.fig, self._update, self.numb_frames)
 
-    def _change_colorbar(self, index):
-        """
-        Internal function to change the colorbar to an data index's gains
-        Args:
-            index: The index (or 0 in the case of a single data input) of what data to use to set the colorbar gain
-        """
-        self.m.set_array(10*np.log10(self.data[index].gains))
-        self.m.autoscale()
-        self.m.changed()
+    #def _change_colorbar(self, index):
+        #"""
+        #Internal function to change the colorbar to an data index's gains
+        #Args:
+            #index: The index (or 0 in the case of a single data input) of what data to use to set the colorbar gain
+        #"""
+        #self.m.set_array(10*np.log10(self.data[index].gains))
+        #self.m.autoscale()
+        #self.m.changed()
 
     @staticmethod
     def show():
@@ -436,6 +453,8 @@ class PyNECWrapper:
         self._all_wires = {}
         self._ex_wire = None
 
+        self.angle_offset = [0, 0]
+
         self.numb_freq_index = 0
 
     class LoadingType(enum.IntEnum):
@@ -449,6 +468,15 @@ class PyNECWrapper:
         parallel_rlc_per_m = 3
         impedance = 4
         wire_conductivity = 5
+
+    class GoundType(enum.IntEnum):
+        """
+        The ground type enumeration. This is used for the :func:`PyNECWrapper.add_ground` function
+        """
+        null = -1
+        reflection = 0
+        perfect = 1
+        finite_norton = 2
 
     def import_file(self, file_name: str, do_calculation: bool = False):
         """
@@ -479,6 +507,8 @@ class PyNECWrapper:
                 self.nec.geometry_complete(int(line[1]))     # Call the nec class's geometry_complete directly
             elif line[0] == 'EX':
                 self.add_excitation(int(line[2]), int(line[3]))
+            elif line[0] == 'GN':
+                self.add_ground(int(line[1]), int(line[2]), float(line[5]), float(line[6]))
             elif line[0] == 'FR':
                 if int(line[2]) == 1:
                     self.set_single_f(float(line[5]))
@@ -580,7 +610,7 @@ class PyNECWrapper:
 
     def add_excitation(self, wire_id: int, place_seg: int):
         """
-        Adds an excitation source
+        Adds an excitation source.
 
         Args:
             wire_id (int): The WireID of the wire to apply the exitation on
@@ -588,6 +618,18 @@ class PyNECWrapper:
         """
         self._ex_wire = {'wire_id': wire_id, 'where_seg': int(place_seg)}
         self.nec.ex_card(0, wire_id, int(place_seg), 0, 1.0, 0, 0, 0, 0, 0)
+
+    def add_ground(self, gn_type: GoundType, radials: int = 0, dielectric_constant: float = 0, conductivity: float = 0):
+        """
+        Adds a ground. See the `NEC's GN <https://www.nec2.org/part_3/cards/gn.html>`_ for more details
+
+        Args:
+            gn_type (:class:`GoundType`): The ground type
+            radials (int): The number of radials
+            dielectric_constant (float): The ground's dielectric constant, used in `gn_type=reflection`
+            conductivity (float): The ground's conductivity, used in `gn_type=reflection`
+        """
+        self.nec.gn_card(gn_type, radials, dielectric_constant, conductivity, 0, 0, 0, 0)
 
     def coordinate_transform(self, rot_x: float = 0, rot_y: float = 0, rot_z: float = 0,
                              trans_x: float = 0, trans_y: float = 0, trans_z: float = 0,
@@ -651,15 +693,23 @@ class PyNECWrapper:
         else:
             raise UserWarning("Loading type is invalid: {}".format(loading_type))
 
-    def calculate(self, n: float):
+    def calculate(self, n: float, theta_start: int = 0, phi_start: int = 0, theta_end: int = 180, phi_end: int = 360):
         """
         Calculates the antenna
 
         Args:
             n: The number of segments for the delta and phi.
+            theta_start: The starting angle for theta. Defaults to 0
+            phi_start: The starting angle for phi. Defaults to 0
+            theta_end: The ending angle for theta. Defaults to 180
+            phi_end: The ending angle for phi. Defaults to 360
+
+        .. note::
+            If using a ground for the simulation, `theta_end` must be set to 90 as you cannot have a radiation pattern bellow ground.
         """
-        self.nec.rp_card(calc_mode=0, n_theta=n, n_phi=n, output_format=0, normalization=0, D=0, A=0, theta0=0,
-                         delta_theta=180/(n-1), phi0=0, delta_phi=360/(n-1), radial_distance=0, gain_norm=0)
+        self.angle_offset = [theta_start, 0]
+        self.nec.rp_card(calc_mode=0, n_theta=n, n_phi=n, output_format=0, normalization=0, D=0, A=0, theta0=theta_start,
+                         delta_theta=(theta_end-theta_start)/(n-1), phi0=phi_start, delta_phi=(phi_end-phi_start)/(n-1), radial_distance=0, gain_norm=0)
         self.nec.xq_card(0)
 
     def set_single_f(self, freq: float):
@@ -707,9 +757,9 @@ class PyNECWrapper:
 
         gains_db = rpt.get_gain()
         ret.gains = 10.0**(gains_db / 10.0)
-        # ret.gains = gains_db
-        thetas = rpt.get_theta_angles()
-        phis = rpt.get_phi_angles()
+        #ret.gains = gains_db
+        thetas = rpt.get_theta_angles() - self.angle_offset[0]
+        phis = rpt.get_phi_angles()- self.angle_offset[1]
 
         thetas = np.deg2rad(thetas)
         phis = np.deg2rad(phis)
@@ -718,9 +768,7 @@ class PyNECWrapper:
         ret.X = ret.gains * np.sin(n_thetas) * np.cos(n_phis)
         ret.Y = ret.gains * np.sin(n_thetas) * np.sin(n_phis)
         ret.Z = ret.gains * np.cos(n_thetas)
-        N = np.sqrt(ret.X**2 + ret.Y**2 + ret.Z**2)
-        Rmax = np.max(N)
-        ret.N = N/Rmax
+        ret.N = np.sqrt(ret.X**2 + ret.Y**2 + ret.Z**2)
 
         return ret
 
@@ -740,8 +788,9 @@ class PyNECWrapper:
 
         gains_db = rpt.get_gain()
         ret.gains = 10.0**(gains_db / 10.0)
-        ret.thetas = rpt.get_theta_angles()
-        ret.phis = rpt.get_phi_angles()
+        #ret.gains = gains_db
+        ret.thetas = rpt.get_theta_angles() - self.angle_offset[0]
+        ret.phis = rpt.get_phi_angles() - self.angle_offset[1]
 
         return ret
 
@@ -769,7 +818,7 @@ class PyNECWrapper:
 
         gains_db = rpt.get_gain()
         if elevation is not None:
-            all_elevations = rpt.get_theta_angles()
+            all_elevations = rpt.get_theta_angles() - self.angle_offset[0]
             if elevation not in all_elevations:
                 raise UserWarning("Elevation isn't part of the generated elevations. Available are {}".format(all_elevations))
             gains_db = gains_db[np.where(all_elevations == elevation)[0][0], :]
@@ -782,7 +831,7 @@ class PyNECWrapper:
             # print(((azimuth+180) % 360), np.where(all_azimuth == ((azimuth+180) % 360)))
             gains_db = np.append(gains_db[:, np.where(all_azimuth == azimuth)[0][0]], gains_db[:, np.where(all_azimuth == ((azimuth+180) % 360))[0][0]])
             ret.constant_azimuth = azimuth
-            ret.plot_theta = np.append(rpt.get_theta_angles(), (rpt.get_theta_angles() + 180))
+            ret.plot_theta = np.append(rpt.get_theta_angles() - self.angle_offset[0], (rpt.get_theta_angles() + 180 - self.angle_offset[0]))
             # print(ret.plot_theta)
 
         gains_db = 10.0**(gains_db / 10.0)
@@ -791,7 +840,7 @@ class PyNECWrapper:
 
         return ret
 
-    def get_all_freq_3d_radiation_pattern(self) -> typing.List[Radiation3DPatternSurface]:
+    def get_all_freq_3d_radiation_surface(self) -> typing.List[Radiation3DPatternSurface]:
         """
         Get 3D radiation pattern data for all frequencies simulated
 
