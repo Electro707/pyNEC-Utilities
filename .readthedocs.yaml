@@ -33,4 +33,5 @@ build:
     post_install:
       - git clone --recursive https://github.com/tmolteno/python-necpp/
       - cd python-necpp/PyNEC && bash build.sh
-      - python python-necpp/PyNEC/setup.py install
+      - cd python-necpp/PyNEC && python setup.py bdist_wheel
+      - pip install python-necpp/PyNEC/dist/PyNEC*.whl
