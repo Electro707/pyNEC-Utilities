@@ -24,6 +24,11 @@ build:
     - libtool
     - swig
     - pandoc
+    - automake
+    - autoconf
+    - libtool
+    - libatlas-base-dev
+    - gfortran
   jobs:
     post_install:
       - git clone --recursive https://github.com/tmolteno/python-necpp/
