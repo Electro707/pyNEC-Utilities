@@ -13,7 +13,7 @@ formats: all
 python:
   install:
     - requirements: rtd-requirements.txt
-    
+
 build:
   os: ubuntu-20.04
   tools:
@@ -21,3 +21,8 @@ build:
   apt_packages:
     - gcc
     - libstdc++6
+  jobs:
+    post_install:
+      - git clone --recursive https://github.com/tmolteno/python-necpp/
+      - cd python-necpp/PyNEC
+      - bash build.sh
