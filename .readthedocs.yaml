@@ -21,6 +21,9 @@ build:
   apt_packages:
     - gcc
     - libstdc++6
+    - libtool
+    - swig
+    - pandoc
   jobs:
     post_install:
       - git clone --recursive https://github.com/tmolteno/python-necpp/
