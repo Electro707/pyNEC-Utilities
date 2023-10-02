@@ -2,4 +2,4 @@ numpy
 matplotlib
 scipy
 # use git release due to PR#21: https://github.com/tmolteno/python-necpp/pull/21
-PyNEC @ git+https://github.com/tmolteno/python-necpp.git@master
+PyNEC @ git+https://github.com/tmolteno/python-necpp.git@master#egg=PyNEC&subdirectory=PyNEC
